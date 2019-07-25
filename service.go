@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"encoding/json"
+	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 )
@@ -71,4 +72,30 @@ func decodeValidateRequest(ctx context.Context, r *http.Request) (interface{}, e
 		return nil, err
 	}
 	return req, nil
+}
+
+func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
+	return json.NewEncoder(w).Encode(response)
+}
+
+func MakeHashEndpoint(srv Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(hashRequest)
+		v, err := srv.Hash(ctx, req.Password)
+		if err != nil {
+			return hashResponse{v, err.Error()}, nil
+		}
+		return hashResponse{v, ""}, nil
+	}
+}
+
+func MakeValidateEndpoint(srv Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(validateRequest)
+		v, err := srv.Validate(ctx, req.Password, req.Hash)
+		if err != nil {
+			return validateResponse{false, err.Error()}, nil
+		}
+		return validateResponse{v, ""}, nil
+	}
 }
