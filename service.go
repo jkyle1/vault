@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/go-kit/kit/endpoint"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -61,7 +62,7 @@ type validateRequest struct {
 }
 
 type validateResponse struct {
-	valid bool   `json:"valid"`
+	Valid bool   `json:"valid"`
 	Err   string `json:"err,omitempty"`
 }
 
@@ -98,4 +99,35 @@ func MakeValidateEndpoint(srv Service) endpoint.Endpoint {
 		}
 		return validateResponse{v, ""}, nil
 	}
+}
+
+type Endpoints struct {
+	HashEndpoint     endpoint.Endpoint
+	ValidateEndpoint endpoint.Endpoint
+}
+
+func (e Endpoints) Hash(ctx context.Context, password string) (string, error) {
+	req := hashRequest{Password: password}
+	resp, err := e.HashEndpoint(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	hashResp := resp.(hashResponse)
+	if hashResp.Err != "" {
+		return "", errors.New(hashResp.Err)
+	}
+	return hashResp.Hash, nil
+}
+
+func (e Endpoints) Validate(ctx context.Context, password, hash string) (bool, error) {
+	req := validateRequest{Password: password, Hash: hash}
+	resp, err := e.ValidateEndpoint(ctx, req)
+	if err != nil {
+		return false, err
+	}
+	validateResp := resp.(validateResponse)
+	if validateResp.Err != "" {
+		return false, errors.New(validateResp.Err)
+	}
+	return validateResp.Valid, nil
 }
